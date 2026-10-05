@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VirusCascade: Hijacking Collaborative Reflection in LLM-Powered Recommender Agents</title>
+<meta name="description" content="VirusCascade (NDSS 2027): a black-box targeted promotion attack that hijacks collaborative reflection in LLM-powered agentic recommender systems.">
+<meta property="og:title" content="VirusCascade">
+<meta property="og:description" content="Hijacking Collaborative Reflection in LLM-Powered Recommender Agents (NDSS 2027)">
+<meta property="og:image" content="static/images/teaser.png">
+<link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="#insight">Insight</a>
+  <a href="#vulnerability">Vulnerability</a>
+  <a href="#method">Method</a>
+  <a href="#results">Results</a>
+  <a href="#more">More</a>
+  <a href="#bibtex">BibTeX</a>
+</nav>
+
+<header class="hero">
+  <div class="venue">NDSS 2027 · Oral</div>
+  <h1><span class="accent">VirusCascade</span>: Hijacking Collaborative Reflection in LLM-Powered Recommender Agents</h1>
+  <p class="authors">
+    <a href="https://yuronghaoa.github.io/yuronghaoA/">Yurong Hao</a><sup>†</sup>,
+    <a href="https://scholar.google.com/citations?hl=zh-CN&user=_NHZPoYAAAAJ&view_op=list_works&sortby=pubdate">Wen Zhou</a>,
+    <a href="https://scholar.google.com/citations?user=cMJEfBsAAAAJ&hl=zh-CN">Guowei Guan</a>,
+    <a href="https://sites.google.com/view/ttwu">Tiantong Wu</a>,
+    <a href="https://fyzhang1.github.io/#home">Fuyao Zhang</a>,
+    <a href="https://sites.google.com/view/wyb/">Wei Yang Bryan Lim</a>
+  </p>
+  <p class="affil">College of Computing and Data Science, Nanyang Technological University</p>
+  <div class="buttons">
+    <a class="btn" href="https://arxiv.org/abs/2609.38270">📄 arXiv</a>
+    <a class="btn" href="https://arxiv.org/pdf/2609.38270">PDF</a>
+    <a class="btn" href="https://github.com/yuronghaoA/VirusCascade">💻 Code</a>
+  </div>
+</header>
+
+<main>
+
+<!-- 1. One-screen summary: the insight -->
+<section id="insight">
+  <div class="tldr">
+    <h2>Background</h2>
+    <p><b>LLM-powered agentic recommender systems (LLM-ARS)</b> turn recommendation into a society of agents. Every user and every item is an <b>LLM agent with a natural-language memory</b>. After each interaction, agents <b>reflect</b> on what happened, <b>write the conclusion back</b> into memory, and share it with the agents they interact with. This <i>collaborative reflection</i> gives <b>unprecedented personalisation and interpretability</b>.</p>
+    <p class="hook">But memory that is rewritten by reflection and shared across agents also needs to be trusted. <b>Could collaborative reflection become the way in for an attacker?</b></p>
+  </div>
+</section>
+
+<!-- 2. Background + Observations -->
+<section id="vulnerability">
+  <h2>Is collaborative reflection safe?</h2>
+  <figure class="fig" data-fs="48">
+    <img src="static/images/fig1_rs_vs_llmars.png" alt="Traditional RS vs LLM-ARS">
+    <figcaption><b>Figure 1.</b> Traditional RS (left) optimises fixed user–item representations through gradient-based learning, whereas LLM-ARS (right) instantiates users and items as memory-equipped agents that update their states through autonomous interaction and <b>collaborative reflection</b>.</figcaption>
+  </figure>
+  <p class="q">What one agent writes into memory is read, reused and reflected on by others. To test whether this is safe, we inject a <b>single probe user</b> carrying a marker claim and ask two questions.</p>
+
+  <div class="obs">
+    <div class="obs-head"><span class="tag">Observation 1</span><span class="name">Reflective persistence</span><span class="qq">Does an injected claim survive?</span></div>
+    <p class="claim">Once admitted, a probe claim <b>remains active</b> across subsequent reflection–writeback cycles. Later rounds reuse or elaborate the claim at rates far exceeding the no-probe baseline.</p>
+    <figure class="fig" data-fs="36">
+      <img src="static/images/table1.png" alt="Reflective persistence: reuse and elaboration rates">
+      <figcaption><b>Table 1.</b> After the probe is removed, admitted users keep reusing the claim at <b>78–82% per round</b> (no-probe baseline: 2.0%), and part of them elaborate on it.</figcaption>
+    </figure>
+    <p class="insight"><b>Insight →</b> collaborative reflection can convert a locally compatible input into a persistent semantic context. <span class="to">Motivates: <a href="#method">Semantic injection</a></span></p>
+  </div>
+
+  <div class="obs">
+    <div class="obs-head"><span class="tag">Observation 2</span><span class="name">Cross-agent propagation</span><span class="qq">Does it reach untouched agents?</span></div>
+    <p class="claim">A local memory update <b>can influence agents that were never directly modified</b>. The influence decays with hop distance in the user–item interaction topology.</p>
+    <figure class="fig" data-fs="36">
+      <img src="static/images/table2.png" alt="Cross-agent propagation by hop distance">
+      <figcaption><b>Table 2.</b> Against a topology-matched semantic-null control (drift ≈ 0.003, adoption 0.0%), hop-1 users adopt the claim in <b>33.6%</b> of cases, hop-2 in 25.8%, hop&gt;2 in 6.7%.</figcaption>
+    </figure>
+    <figure class="fig" data-fs="21">
+      <img src="static/images/fig2_propagation.png" alt="Fraction of admitted users across rounds">
+      <figcaption><b>Figure 2.</b> Admitted benign users grow from 2% to <b>38% in five rounds</b> with no further attacker action; earlier admissions are retained.</figcaption>
+    </figure>
+    <p class="insight"><b>Insight →</b> collaborative reflection provides a topological pathway for cross-agent propagation, and high-degree items act as both accumulation points and redistribution channels. <span class="to">Motivates: <a href="#method">Structural injection</a></span></p>
+  </div>
+
+  <p class="bridge"><b>Together:</b> persistence determines <i>what</i> to inject, evidence that reflection will accept and keep; propagation determines <i>where</i> to inject it, positions that reflection will spread. <b>So how do we exploit both?</b></p>
+</section>
+
+<!-- 3. Method -->
+<section id="method">
+  <h2>Our Attack: VirusCascade</h2>
+  <p class="q">Two levers, two injections: one for <b>what</b>, one for <b>where</b>, and then the victim does the rest.</p>
+  <figure class="fig" data-fs="18">
+    <img src="static/images/fig3_overview.png" alt="VirusCascade overview">
+  </figure>
+  <div class="three">
+    <div class="card"><h3>1 · Semantic injection <small>← Obs. 1</small></h3><p>Design the target profile so that interactions are naturally rationalised as coherent preference evidence during reflection.</p></div>
+    <div class="card"><h3>2 · Structural injection <small>← Obs. 2</small></h3><p>Construct behaviour trajectories that guide attacker-controlled users along smooth, propagation-oriented paths.</p></div>
+    <div class="card"><h3>3 · Reflection-driven amplification</h3><p>After execution, all further amplification is driven by the victim system's own collaborative reflection.</p></div>
+  </div>
+</section>
+
+<!-- 4. Results: only the headline -->
+<section id="results">
+  <h2>Does it work?</h2>
+  <div class="stats">
+    <div><b>0.384</b><span>mean E@20<br>(best baseline 0.199)</span></div>
+    <div><b>+0.185</b><span>absolute gain<br>over best baseline</span></div>
+    <div><b>1%</b><span>malicious users<br>are enough</span></div>
+    <div><b>4 / 3</b><span>datasets / victim<br>architectures</span></div>
+  </div>
+  <h3>Is it stronger than existing attacks?</h3>
+  <p>E@20 (targeted exposure, higher is better) against the strongest baseline in each setting. Recommendation quality (H@K / N@K) stays at the clean level.</p>
+  <div class="scroll">
+  <table class="res">
+    <tr><th rowspan="2">Victim</th><th colspan="2">CDs &amp; Vinyl</th><th colspan="2">Movies &amp; TV</th></tr>
+    <tr><th>Best baseline</th><th>VirusCascade</th><th>Best baseline</th><th>VirusCascade</th></tr>
+    <tr><td>AgentCF</td><td>0.091</td><td><b>0.374</b></td><td>0.150</td><td><b>0.240</b></td></tr>
+    <tr><td>AgentSEQ</td><td>0.071</td><td><b>0.465</b></td><td>0.270</td><td><b>0.300</b></td></tr>
+    <tr><td>AgentRAG</td><td>0.380</td><td><b>0.545</b></td><td>0.230</td><td><b>0.380</b></td></tr>
+  </table>
+  </div>
+
+  <h3>Does it go unnoticed?</h3>
+  <p>Text perplexity <b>32.22</b>, inside the range of original profiles (10.31–90.02). In a human study, <b>21.9%</b> of VirusCascade profiles were flagged as manipulated vs. <b>19.3%</b> of originals (factual consistency 4.16 vs. 4.31, p = 0.25).</p>
+
+  <h3>Do we need both injections?</h3>
+  <p>Without semantic injection E@20 falls to 0.071–0.131; without structural injection to 0.040–0.202. Structure contributes more, and the two are synergistic.</p>
+</section>
+
+<!-- 5. Everything else, collapsed -->
+<section id="more">
+  <h2>More details</h2>
+
+  <details>
+    <summary>Scalability &amp; transferability</summary>
+    <ul>
+      <li><b>Small footprint:</b> still effective with 1% malicious users (5 of 500); the effect persists for 20 rounds without hurting H@20.</li>
+      <li><b>Model-agnostic:</b> works with LLaMA-3, GPT-4o and Gemini-2.5 as auxiliary models (E@20 0.140–0.545), and on user-only architectures (0.152–0.283, 1.5×–2.5× over baselines).</li>
+      <li><b>Hyperparameters:</b> exposure rises with attack budget (3%–12%) with diminishing returns beyond 5%; best trade-off α = 0.7–0.9.</li>
+    </ul>
+    <figure class="fig" data-fs="21">
+      <img src="static/images/fig4_budget.png" alt="Effect of malicious user fraction">
+      <figcaption>Effect of the malicious-user fraction m on H@20, N@20 and E@20.</figcaption>
+    </figure>
+  </details>
+
+  <details>
+    <summary>Full comparison table (all baselines)</summary>
+    <figure class="fig" data-fs="20">
+      <img src="static/images/table4.png" alt="Full attack performance table">
+      <figcaption>Attack performance (H@K, N@K, E@K) of all attacks on all victims.</figcaption>
+    </figure>
+  </details>
+
+  <details>
+    <summary>Experimental setup</summary>
+    <ul>
+      <li><b>Datasets (Amazon):</b> CDs &amp; Vinyl, Movies &amp; TV, Automotive, Musical Instruments.</li>
+      <li><b>Victims:</b> AgentCF, AgentRAG, AgentSEQ (GPT-4o-mini backbone, user and item agents with natural-language memory).</li>
+      <li><b>Baselines:</b> interaction-level (RandAttack, PopAttack, ExpPromot), text-level (DeepWordBug, PuncAttack, TextFooler, BertAttack, TextBugger, TrivInsert), memory-level (DrunkAgent).</li>
+      <li><b>Defenses evaluated:</b> ONION, Fraudar, TrustRAG, A-MemGuard (see paper appendix).</li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Ethics statement</summary>
+    <p>All experiments run in a sandboxed local simulation on public, anonymised Amazon datasets; no real platform, production API or user is targeted. Human-study participants judged public descriptions offline. Findings were disclosed to the affected open-source framework developers before publication. Our goal is to expose an overlooked attack surface and support robust defenses.</p>
+  </details>
+</section>
+
+<section id="bibtex">
+  <h2>BibTeX</h2>
+  <pre id="bib">@inproceedings{hao2027viruscascade,
+  title     = {VirusCascade: Hijacking Collaborative Reflection in LLM-Powered Recommender Agents},
+  author    = {Hao, Yurong and Zhou, Wen and Guan, Guowei and Wu, Tiantong and Zhang, Fuyao and Lim, Wei Yang Bryan},
+  booktitle = {Network and Distributed System Security (NDSS) Symposium},
+  year      = {2027}
+}</pre>
+  <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('bib').innerText)">Copy BibTeX</button>
+</section>
+</main>
+
+<footer>
+  <p>Project page template inspired by <a href="https://nerfies.github.io">Nerfies</a>. Licensed under CC BY-SA 4.0.</p>
+</footer>
+
+<script>
+/* Scale every figure so its internal text matches the body font size.
+   data-fs = approximate font size (px) inside the image at its natural size. */
+(function () {
+  function fit() {
+    var body = parseFloat(getComputedStyle(document.body).fontSize);
+    document.querySelectorAll('figure.fig').forEach(function (f) {
+      var img = f.querySelector('img');
+      if (!img || !img.naturalWidth) return;
+      var w = img.naturalWidth * body * 0.92 / parseFloat(f.dataset.fs);
+      f.style.setProperty('--w', Math.round(w) + 'px');
+    });
+  }
+  document.querySelectorAll('figure.fig img').forEach(function (i) {
+    if (i.complete) fit(); else i.addEventListener('load', fit);
+  });
+  document.querySelectorAll('details').forEach(function (d) {
+    d.addEventListener('toggle', fit);
+  });
+  window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>
